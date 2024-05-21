@@ -31,8 +31,10 @@ const totalArea = computed(() => {
   const maxLat = Math.max(...points.value.map((point) => point[1]))
   const minLat = Math.min(...points.value.map((point) => point[1]))
 
-  const lonDistance = getDistanceFromLatLonInKm(maxLat, maxLon, maxLat, minLon)
-  const latDistance = getDistanceFromLatLonInKm(maxLat, maxLon, minLat, maxLon)
+  const lonDistance =
+    (maxLon - minLon < 180 ? 0 : Math.PI * 2 * 6371) +
+    getDistanceFromLatLonInKm(0, minLon, 0, maxLon)
+  const latDistance = getDistanceFromLatLonInKm(maxLat, 0, minLat, 0)
 
   return lonDistance * latDistance
 })
