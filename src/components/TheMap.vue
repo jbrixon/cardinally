@@ -8,13 +8,21 @@ const pointLayer = ref()
 const boxLayer = ref()
 const points = ref([])
 
-const bounds = computed(() => {
-  if (points.value.length === 0) return []
+const pointExtremes = computed(() => {
+  if (points.value.length === 0) return null
 
-  const maxLon = Math.max(...points.value.map((point) => point[0]))
-  const minLon = Math.min(...points.value.map((point) => point[0]))
-  const maxLat = Math.max(...points.value.map((point) => point[1]))
-  const minLat = Math.min(...points.value.map((point) => point[1]))
+  return {
+    maxLon: Math.max(...points.value.map((point) => point[0])),
+    minLon: Math.min(...points.value.map((point) => point[0])),
+    maxLat: Math.max(...points.value.map((point) => point[1])),
+    minLat: Math.min(...points.value.map((point) => point[1]))
+  }
+})
+
+const bounds = computed(() => {
+  if (!pointExtremes.value) return []
+
+  const { maxLon, minLon, maxLat, minLat } = pointExtremes.value
   const bounds = [
     [minLon, minLat],
     [maxLon, minLat],
@@ -24,20 +32,17 @@ const bounds = computed(() => {
   return bounds
 })
 
-const totalArea = computed(() => {
+const largestSpanDistance = computed(() => {
   if (points.value.length < 2) return 0
 
-  const maxLon = Math.max(...points.value.map((point) => point[0]))
-  const minLon = Math.min(...points.value.map((point) => point[0]))
-  const maxLat = Math.max(...points.value.map((point) => point[1]))
-  const minLat = Math.min(...points.value.map((point) => point[1]))
+  const { maxLon, minLon, maxLat, minLat } = pointExtremes.value
 
-  const lonDistance =
-    (maxLon - minLon < 180 ? 0 : Math.PI * 2 * 6371) +
-    getDistanceFromLatLonInKm(0, minLon, 0, maxLon)
+  const lonDelta = maxLon - minLon
+  const shortestLonDelta = Math.min(lonDelta, 360 - lonDelta)
+  const lonDistance = getDistanceFromLatLonInKm(0, 0, 0, shortestLonDelta)
   const latDistance = getDistanceFromLatLonInKm(maxLat, 0, minLat, 0)
 
-  return lonDistance * latDistance
+  return Math.max(lonDistance, latDistance)
 })
 
 const handleDoubleClick = (event) => {
@@ -51,11 +56,19 @@ const renderPoints = () => {
   boxLayer.value.clearLayers()
 
   points.value.forEach((point) => {
+    const isExtremePoint =
+      pointExtremes.value &&
+      (point[0] === pointExtremes.value.maxLon ||
+        point[0] === pointExtremes.value.minLon ||
+        point[1] === pointExtremes.value.maxLat ||
+        point[1] === pointExtremes.value.minLat)
+
     L.circleMarker([point[1], point[0]], {
       radius: 8,
       color: 'red',
       fillColor: 'red',
-      fillOpacity: 1
+      opacity: isExtremePoint ? 1 : 0.35,
+      fillOpacity: isExtremePoint ? 1 : 0.35
     }).addTo(pointLayer.value)
   })
 
@@ -119,7 +132,7 @@ function deg2rad(deg) {
 <template>
   <div ref="mapElement" class="map"></div>
 
-  <div id="area">{{ (totalArea || 0).toLocaleString() + ' km²' }}</div>
+  <div id="area">{{ (largestSpanDistance || 0).toLocaleString() + ' km' }}</div>
 </template>
 
 <style scoped>
