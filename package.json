@@ -13,11 +13,8 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
-    "ol": "^9.2.2",
-    "ol-contextmenu": "^5.4.0",
-    "ol-ext": "^4.0.18",
-    "vue": "^3.4.21",
-    "vue3-openlayers": "^9.0.3"
+    "leaflet": "^1.9.4",
+    "vue": "^3.4.21"
   },
   "devDependencies": {
     "@playwright/test": "^1.43.0",
