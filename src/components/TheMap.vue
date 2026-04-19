@@ -37,8 +37,9 @@ const largestSpanDistance = computed(() => {
 
   const { maxLon, minLon, maxLat, minLat } = pointExtremes.value
 
-  const latitudeForLargestLonSpan =
-    minLat <= 0 && maxLat >= 0 ? 0 : Math.abs(minLat) < Math.abs(maxLat) ? minLat : maxLat
+  const crossesEquator = minLat <= 0 && maxLat >= 0
+  const latitudeClosestToEquator = Math.abs(minLat) < Math.abs(maxLat) ? minLat : maxLat
+  const latitudeForLargestLonSpan = crossesEquator ? 0 : latitudeClosestToEquator
   const lonDistance = getDistanceFromLatLonInKm(
     latitudeForLargestLonSpan,
     minLon,
@@ -142,7 +143,7 @@ function isNearValue(value, target, epsilon) {
 <template>
   <div ref="mapElement" class="map"></div>
 
-  <div id="area">{{ (largestSpanDistance || 0).toLocaleString() + ' km' }}</div>
+  <div id="span-distance">{{ (largestSpanDistance || 0).toLocaleString() + ' km' }}</div>
 </template>
 
 <style scoped>
@@ -150,7 +151,7 @@ function isNearValue(value, target, epsilon) {
   height: 100%;
 }
 
-#area {
+#span-distance {
   position: fixed;
   top: 8px;
   left: 60px;
