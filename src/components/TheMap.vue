@@ -37,9 +37,13 @@ const largestSpanDistance = computed(() => {
 
   const { maxLon, minLon, maxLat, minLat } = pointExtremes.value
 
-  const lonDistance = Math.max(
-    getDistanceFromLatLonInKm(minLat, minLon, minLat, maxLon),
-    getDistanceFromLatLonInKm(maxLat, minLon, maxLat, maxLon)
+  const latitudeForLargestLonSpan =
+    minLat <= 0 && maxLat >= 0 ? 0 : Math.abs(minLat) < Math.abs(maxLat) ? minLat : maxLat
+  const lonDistance = getDistanceFromLatLonInKm(
+    latitudeForLargestLonSpan,
+    minLon,
+    latitudeForLargestLonSpan,
+    maxLon
   )
   const latDistance = getDistanceFromLatLonInKm(maxLat, 0, minLat, 0)
 
@@ -60,10 +64,10 @@ const renderPoints = () => {
   points.value.forEach((point) => {
     const isExtremePoint =
       pointExtremes.value &&
-      (Math.abs(point[0] - pointExtremes.value.maxLon) < epsilon ||
-        Math.abs(point[0] - pointExtremes.value.minLon) < epsilon ||
-        Math.abs(point[1] - pointExtremes.value.maxLat) < epsilon ||
-        Math.abs(point[1] - pointExtremes.value.minLat) < epsilon)
+      (isNearValue(point[0], pointExtremes.value.maxLon, epsilon) ||
+        isNearValue(point[0], pointExtremes.value.minLon, epsilon) ||
+        isNearValue(point[1], pointExtremes.value.maxLat, epsilon) ||
+        isNearValue(point[1], pointExtremes.value.minLat, epsilon))
 
     L.circleMarker([point[1], point[0]], {
       radius: 8,
@@ -128,6 +132,10 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
 
 function deg2rad(deg) {
   return deg * (Math.PI / 180)
+}
+
+function isNearValue(value, target, epsilon) {
+  return Math.abs(value - target) < epsilon
 }
 </script>
 
