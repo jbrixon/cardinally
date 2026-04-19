@@ -7,14 +7,23 @@ const map = ref()
 const pointLayer = ref()
 const boxLayer = ref()
 const points = ref([])
+const EXTREME_VALUE_EPSILON = 1e-6
+
+const pointExtremes = computed(() => {
+  if (points.value.length === 0) return null
+
+  return {
+    maxLon: Math.max(...points.value.map((point) => point[0])),
+    minLon: Math.min(...points.value.map((point) => point[0])),
+    maxLat: Math.max(...points.value.map((point) => point[1])),
+    minLat: Math.min(...points.value.map((point) => point[1]))
+  }
+})
 
 const bounds = computed(() => {
-  if (points.value.length === 0) return []
+  if (!pointExtremes.value) return []
 
-  const maxLon = Math.max(...points.value.map((point) => point[0]))
-  const minLon = Math.min(...points.value.map((point) => point[0]))
-  const maxLat = Math.max(...points.value.map((point) => point[1]))
-  const minLat = Math.min(...points.value.map((point) => point[1]))
+  const { maxLon, minLon, maxLat, minLat } = pointExtremes.value
   const bounds = [
     [minLon, minLat],
     [maxLon, minLat],
@@ -24,20 +33,23 @@ const bounds = computed(() => {
   return bounds
 })
 
-const totalArea = computed(() => {
+const largestSpanDistance = computed(() => {
   if (points.value.length < 2) return 0
 
-  const maxLon = Math.max(...points.value.map((point) => point[0]))
-  const minLon = Math.min(...points.value.map((point) => point[0]))
-  const maxLat = Math.max(...points.value.map((point) => point[1]))
-  const minLat = Math.min(...points.value.map((point) => point[1]))
+  const { maxLon, minLon, maxLat, minLat } = pointExtremes.value
 
-  const lonDistance =
-    (maxLon - minLon < 180 ? 0 : Math.PI * 2 * 6371) +
-    getDistanceFromLatLonInKm(0, minLon, 0, maxLon)
+  const crossesEquator = minLat <= 0 && maxLat >= 0
+  const latitudeOfExtremeClosestToEquator = Math.abs(minLat) < Math.abs(maxLat) ? minLat : maxLat
+  const latitudeForLargestLonSpan = crossesEquator ? 0 : latitudeOfExtremeClosestToEquator
+  const lonDistance = getDistanceFromLatLonInKm(
+    latitudeForLargestLonSpan,
+    minLon,
+    latitudeForLargestLonSpan,
+    maxLon
+  )
   const latDistance = getDistanceFromLatLonInKm(maxLat, 0, minLat, 0)
 
-  return lonDistance * latDistance
+  return Math.max(lonDistance, latDistance)
 })
 
 const handleDoubleClick = (event) => {
@@ -49,13 +61,20 @@ const renderPoints = () => {
 
   pointLayer.value.clearLayers()
   boxLayer.value.clearLayers()
-
   points.value.forEach((point) => {
+    const isExtremePoint =
+      pointExtremes.value &&
+      (isNearValue(point[0], pointExtremes.value.maxLon, EXTREME_VALUE_EPSILON) ||
+        isNearValue(point[0], pointExtremes.value.minLon, EXTREME_VALUE_EPSILON) ||
+        isNearValue(point[1], pointExtremes.value.maxLat, EXTREME_VALUE_EPSILON) ||
+        isNearValue(point[1], pointExtremes.value.minLat, EXTREME_VALUE_EPSILON))
+
     L.circleMarker([point[1], point[0]], {
       radius: 8,
       color: 'red',
       fillColor: 'red',
-      fillOpacity: 1
+      opacity: isExtremePoint ? 1 : 0.35,
+      fillOpacity: isExtremePoint ? 1 : 0.35
     }).addTo(pointLayer.value)
   })
 
@@ -114,12 +133,16 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
 function deg2rad(deg) {
   return deg * (Math.PI / 180)
 }
+
+function isNearValue(value, target, epsilon) {
+  return Math.abs(value - target) < epsilon
+}
 </script>
 
 <template>
   <div ref="mapElement" class="map"></div>
 
-  <div id="area">{{ (totalArea || 0).toLocaleString() + ' km²' }}</div>
+  <div id="span-distance">{{ (largestSpanDistance || 0).toLocaleString() + ' km' }}</div>
 </template>
 
 <style scoped>
@@ -127,7 +150,7 @@ function deg2rad(deg) {
   height: 100%;
 }
 
-#area {
+#span-distance {
   position: fixed;
   top: 8px;
   left: 60px;
