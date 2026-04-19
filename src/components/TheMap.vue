@@ -7,6 +7,7 @@ const map = ref()
 const pointLayer = ref()
 const boxLayer = ref()
 const points = ref([])
+const EXTREME_VALUE_EPSILON = 1e-6
 
 const pointExtremes = computed(() => {
   if (points.value.length === 0) return null
@@ -38,8 +39,8 @@ const largestSpanDistance = computed(() => {
   const { maxLon, minLon, maxLat, minLat } = pointExtremes.value
 
   const crossesEquator = minLat <= 0 && maxLat >= 0
-  const latitudeClosestToEquator = Math.abs(minLat) < Math.abs(maxLat) ? minLat : maxLat
-  const latitudeForLargestLonSpan = crossesEquator ? 0 : latitudeClosestToEquator
+  const latitudeOfExtremeClosestToEquator = Math.abs(minLat) < Math.abs(maxLat) ? minLat : maxLat
+  const latitudeForLargestLonSpan = crossesEquator ? 0 : latitudeOfExtremeClosestToEquator
   const lonDistance = getDistanceFromLatLonInKm(
     latitudeForLargestLonSpan,
     minLon,
@@ -60,15 +61,13 @@ const renderPoints = () => {
 
   pointLayer.value.clearLayers()
   boxLayer.value.clearLayers()
-  const epsilon = 1e-6
-
   points.value.forEach((point) => {
     const isExtremePoint =
       pointExtremes.value &&
-      (isNearValue(point[0], pointExtremes.value.maxLon, epsilon) ||
-        isNearValue(point[0], pointExtremes.value.minLon, epsilon) ||
-        isNearValue(point[1], pointExtremes.value.maxLat, epsilon) ||
-        isNearValue(point[1], pointExtremes.value.minLat, epsilon))
+      (isNearValue(point[0], pointExtremes.value.maxLon, EXTREME_VALUE_EPSILON) ||
+        isNearValue(point[0], pointExtremes.value.minLon, EXTREME_VALUE_EPSILON) ||
+        isNearValue(point[1], pointExtremes.value.maxLat, EXTREME_VALUE_EPSILON) ||
+        isNearValue(point[1], pointExtremes.value.minLat, EXTREME_VALUE_EPSILON))
 
     L.circleMarker([point[1], point[0]], {
       radius: 8,
