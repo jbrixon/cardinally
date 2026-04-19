@@ -37,8 +37,10 @@ const largestSpanDistance = computed(() => {
 
   const { maxLon, minLon, maxLat, minLat } = pointExtremes.value
 
-  const lonDelta = maxLon - minLon
-  const lonDistance = 6371 * deg2rad(lonDelta)
+  const lonDistance = Math.max(
+    getDistanceFromLatLonInKm(minLat, minLon, minLat, maxLon),
+    getDistanceFromLatLonInKm(maxLat, minLon, maxLat, maxLon)
+  )
   const latDistance = getDistanceFromLatLonInKm(maxLat, 0, minLat, 0)
 
   return Math.max(lonDistance, latDistance)
@@ -53,7 +55,7 @@ const renderPoints = () => {
 
   pointLayer.value.clearLayers()
   boxLayer.value.clearLayers()
-  const epsilon = 1e-9
+  const epsilon = 1e-6
 
   points.value.forEach((point) => {
     const isExtremePoint =
