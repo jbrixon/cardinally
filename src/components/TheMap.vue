@@ -38,8 +38,7 @@ const largestSpanDistance = computed(() => {
   const { maxLon, minLon, maxLat, minLat } = pointExtremes.value
 
   const lonDelta = maxLon - minLon
-  const shortestLonDelta = Math.min(lonDelta, 360 - lonDelta)
-  const lonDistance = getDistanceFromLatLonInKm(0, 0, 0, shortestLonDelta)
+  const lonDistance = 6371 * deg2rad(lonDelta)
   const latDistance = getDistanceFromLatLonInKm(maxLat, 0, minLat, 0)
 
   return Math.max(lonDistance, latDistance)
@@ -54,14 +53,15 @@ const renderPoints = () => {
 
   pointLayer.value.clearLayers()
   boxLayer.value.clearLayers()
+  const epsilon = 1e-9
 
   points.value.forEach((point) => {
     const isExtremePoint =
       pointExtremes.value &&
-      (point[0] === pointExtremes.value.maxLon ||
-        point[0] === pointExtremes.value.minLon ||
-        point[1] === pointExtremes.value.maxLat ||
-        point[1] === pointExtremes.value.minLat)
+      (Math.abs(point[0] - pointExtremes.value.maxLon) < epsilon ||
+        Math.abs(point[0] - pointExtremes.value.minLon) < epsilon ||
+        Math.abs(point[1] - pointExtremes.value.maxLat) < epsilon ||
+        Math.abs(point[1] - pointExtremes.value.minLat) < epsilon)
 
     L.circleMarker([point[1], point[0]], {
       radius: 8,
