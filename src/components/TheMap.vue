@@ -9,6 +9,7 @@ const pointLayer = ref()
 const boxLayer = ref()
 const points = ref([])
 const isExportingMap = ref(false)
+const exportErrorMessage = ref('')
 const EXTREME_VALUE_EPSILON = 1e-6
 
 const pointExtremes = computed(() => {
@@ -96,13 +97,17 @@ const handleExportMap = () => {
   if (!map.value || isExportingMap.value) return
 
   isExportingMap.value = true
+  exportErrorMessage.value = ''
 
   leafletImage(map.value, (error, canvas) => {
     isExportingMap.value = false
-    if (error || !canvas) return
+    if (error || !canvas) {
+      exportErrorMessage.value = 'Export failed. Please try again.'
+      return
+    }
 
     const link = document.createElement('a')
-    link.download = 'travelbox-map.png'
+    link.download = createMapFileName()
     link.href = canvas.toDataURL('image/png')
     link.click()
   })
@@ -156,6 +161,11 @@ function deg2rad(deg) {
 function isNearValue(value, target, epsilon) {
   return Math.abs(value - target) < epsilon
 }
+
+function createMapFileName() {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  return `travelbox-map-${timestamp}.png`
+}
 </script>
 
 <template>
@@ -165,6 +175,7 @@ function isNearValue(value, target, epsilon) {
   <button id="export-map-button" :disabled="isExportingMap" @click="handleExportMap">
     {{ isExportingMap ? 'Exporting...' : 'Export map image' }}
   </button>
+  <div v-if="exportErrorMessage" id="export-error">{{ exportErrorMessage }}</div>
 </template>
 
 <style scoped>
@@ -184,5 +195,16 @@ function isNearValue(value, target, epsilon) {
   right: 8px;
   z-index: 1000;
   padding: 8px 12px;
+}
+
+#export-error {
+  position: fixed;
+  top: 44px;
+  right: 8px;
+  z-index: 1000;
+  padding: 4px 8px;
+  background: rgba(220, 53, 69, 0.85);
+  color: white;
+  border-radius: 4px;
 }
 </style>
