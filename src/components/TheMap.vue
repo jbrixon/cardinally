@@ -107,7 +107,7 @@ const handleExportMap = () => {
     }
 
     const link = document.createElement('a')
-    link.download = createMapFileName()
+    link.download = generateMapFileName()
     link.href = canvas.toDataURL('image/png')
     link.click()
   })
@@ -162,7 +162,7 @@ function isNearValue(value, target, epsilon) {
   return Math.abs(value - target) < epsilon
 }
 
-function createMapFileName() {
+function generateMapFileName() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
   return `travelbox-map-${timestamp}.png`
 }
