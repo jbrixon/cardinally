@@ -163,7 +163,11 @@ function isNearValue(value, target, epsilon) {
 }
 
 function generateMapFileName() {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[:.]/g, '-')
+    .replace('T', '-')
+    .replace('Z', '')
   return `travelbox-map-${timestamp}.png`
 }
 </script>
