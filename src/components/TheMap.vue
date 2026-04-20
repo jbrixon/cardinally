@@ -1,12 +1,15 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import L from 'leaflet'
+import leafletImage from 'leaflet-image'
 
 const mapElement = ref()
 const map = ref()
 const pointLayer = ref()
 const boxLayer = ref()
 const points = ref([])
+const isExportingMap = ref(false)
+const exportErrorMessage = ref('')
 const EXTREME_VALUE_EPSILON = 1e-6
 
 const pointExtremes = computed(() => {
@@ -90,6 +93,26 @@ const renderPoints = () => {
   }
 }
 
+const handleExportMap = () => {
+  if (!map.value || isExportingMap.value) return
+
+  isExportingMap.value = true
+  exportErrorMessage.value = ''
+
+  leafletImage(map.value, (error, canvas) => {
+    isExportingMap.value = false
+    if (error || !canvas) {
+      exportErrorMessage.value = 'Export failed. Please try again.'
+      return
+    }
+
+    const link = document.createElement('a')
+    link.download = generateMapFileName()
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  })
+}
+
 onMounted(() => {
   map.value = L.map(mapElement.value, {
     center: [0, 0],
@@ -98,7 +121,8 @@ onMounted(() => {
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
+    attribution: '&copy; OpenStreetMap contributors',
+    crossOrigin: true
   }).addTo(map.value)
 
   map.value.doubleClickZoom.disable()
@@ -137,12 +161,21 @@ function deg2rad(deg) {
 function isNearValue(value, target, epsilon) {
   return Math.abs(value - target) < epsilon
 }
+
+function generateMapFileName() {
+  const timestamp = new Date().toISOString().split('.')[0].replace(/[T:]/g, '-')
+  return `travelbox-map-${timestamp}.png`
+}
 </script>
 
 <template>
   <div ref="mapElement" class="map"></div>
 
   <div id="span-distance">{{ (largestSpanDistance || 0).toLocaleString() + ' km' }}</div>
+  <button id="export-map-button" :disabled="isExportingMap" @click="handleExportMap">
+    {{ isExportingMap ? 'Exporting...' : 'Export map image' }}
+  </button>
+  <div v-if="exportErrorMessage" id="export-error">{{ exportErrorMessage }}</div>
 </template>
 
 <style scoped>
@@ -154,5 +187,24 @@ function isNearValue(value, target, epsilon) {
   position: fixed;
   top: 8px;
   left: 60px;
+}
+
+#export-map-button {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 1000;
+  padding: 8px 12px;
+}
+
+#export-error {
+  position: fixed;
+  top: 44px;
+  right: 8px;
+  z-index: 1000;
+  padding: 4px 8px;
+  background: rgba(220, 53, 69, 0.85);
+  color: white;
+  border-radius: 4px;
 }
 </style>
