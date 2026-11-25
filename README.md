@@ -1,6 +1,6 @@
-# Travelbox
+# Cardinally
 
-Travelbox maps the places you have visited and draws the smallest geographic box containing them. Add a place by double-clicking the map or entering its latitude and longitude. Visits are saved in the current browser.
+Cardinally maps the places you have visited and draws the smallest geographic box containing them. Add a place by double-clicking the map or entering its latitude and longitude. Visits are saved in the current browser.
 
 The box shows approximate area, north–south span, and east–west span. Longitude bounds can cross the date line. Measurements use a spherical Earth model and are intended for comparing travel boxes, not navigation.
 

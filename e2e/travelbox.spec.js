@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 test('adds, compares, removes, and restores visited places', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: 'Travelbox' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Cardinally.' })).toBeVisible()
   await expect(page.getByTestId('box-area')).toHaveText('0 km²')
   await expect(page.getByText(/Double-click the map or enter coordinates/)).toBeVisible()
 
