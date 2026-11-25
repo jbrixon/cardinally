@@ -10,6 +10,7 @@ import {
 } from '../lib/travelbox.js'
 
 const STORAGE_KEY = 'travelbox.visits.v1'
+const baseUrl = import.meta.env.BASE_URL
 
 const mapElement = ref(null)
 const controlsPanel = ref(null)
@@ -261,8 +262,8 @@ onBeforeUnmount(() => {
 
 <template>
   <header class="app-header">
-    <a class="brand" href="/" aria-label="Cardinally home">
-      <img src="/cardinally-mark.svg" alt="" width="44" height="44" />
+    <a class="brand" :href="baseUrl" aria-label="Cardinally home">
+      <img :src="`${baseUrl}cardinally-mark.svg`" alt="" width="44" height="44" />
       <h1>Cardinally<span class="brand-period">.</span></h1>
     </a>
     <span class="brand-tagline">Expand your range.</span>
@@ -353,7 +354,7 @@ onBeforeUnmount(() => {
       <button type="button" @click="replaceUnreadableVisits">Replace unreadable saved data</button>
     </div>
   </aside>
-  <div class="map-compass" aria-hidden="true"><span>N</span><img src="/cardinally-mark.svg" alt="" width="56" height="56" /></div>
+  <div class="map-compass" aria-hidden="true"><span>N</span><img :src="`${baseUrl}cardinally-mark.svg`" alt="" width="56" height="56" /></div>
   <div class="map-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 11 9-6 1-3 6Z"/></svg>Double-click anywhere to mark a place</div>
 </template>
 

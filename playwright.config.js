@@ -33,8 +33,10 @@ export default defineConfig({
   use: {
     /* Maximum time each action such as `click()` can take. Defaults to 0 (no limit). */
     actionTimeout: 0,
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://127.0.0.1:5173',
+    /* Base URL for page.goto('./') in local and Pages builds. */
+    baseURL: process.env.CI
+      ? 'http://127.0.0.1:5174/cardinally/'
+      : 'http://127.0.0.1:5173',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -103,8 +105,10 @@ export default defineConfig({
      * Use the preview server on CI for more realistic testing.
      * Playwright will re-use the local server if there is already a dev-server running.
      */
-    command: process.env.CI ? 'vite preview --host 127.0.0.1 --port 5173' : 'vite dev --host 127.0.0.1',
-    port: 5173,
+    command: process.env.CI
+      ? 'vite preview --host 127.0.0.1 --port 5174 --strictPort'
+      : 'vite dev --host 127.0.0.1',
+    port: process.env.CI ? 5174 : 5173,
     reuseExistingServer: !process.env.CI
   }
 })

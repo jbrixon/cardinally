@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('adds, compares, removes, and restores visited places', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
 
   await expect(page.getByRole('heading', { name: 'Cardinally.' })).toBeVisible()
   await expect(page.getByTestId('box-area')).toHaveText('0 km²')
@@ -54,7 +54,7 @@ test('adds, compares, removes, and restores visited places', async ({ page }) =>
 })
 
 test('validates coordinates, rejects duplicates, and accepts a map double-click', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
 
   await page.getByLabel('Latitude').fill('91')
   await page.getByLabel('Longitude').fill('16')
@@ -81,7 +81,7 @@ test('does not overwrite unreadable saved visits without explicit replacement', 
   await page.addInitScript(() => {
     localStorage.setItem('travelbox.visits.v1', '{broken')
   })
-  await page.goto('/')
+  await page.goto('./')
 
   await expect(page.getByTestId('storage-warning')).toContainText('could not be read')
   await page.getByLabel('Latitude').fill('10')
@@ -106,7 +106,7 @@ test('remains usable when browser storage is unavailable', async ({ page }) => {
       }
     })
   })
-  await page.goto('/')
+  await page.goto('./')
 
   await expect(page.getByText(/Browser storage is unavailable/)).toBeVisible()
   await page.getByLabel('Latitude').fill('10')
@@ -120,7 +120,7 @@ test('keeps the panel, map controls, and attribution usable on a phone viewport'
   await page.addInitScript(() => {
     localStorage.setItem('travelbox.visits.v1', '[[16.3738,48.2082],[-74.006,40.7128]]')
   })
-  await page.goto('/')
+  await page.goto('./')
 
   const panel = page.locator('.controls-panel')
   await expect(panel).toBeVisible()
@@ -150,7 +150,7 @@ test('opens a marker card with a touch tap above the phone panel and removes the
   await page.addInitScript(() => {
     localStorage.setItem('travelbox.visits.v1', '[[16.3738,48.2082],[-74.006,40.7128]]')
   })
-  await page.goto('/')
+  await page.goto('./')
   await page.getByRole('button', { name: 'Place visited at 48.2082°, 16.3738°', exact: true }).tap()
   const popup = page.locator('.visit-popup')
   await expect(popup).toBeVisible()

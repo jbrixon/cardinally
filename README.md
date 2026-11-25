@@ -22,3 +22,7 @@ npm run lint
 ```
 
 Browser tests block OpenStreetMap tile requests, so the interaction tests do not depend on the tile service being online. The live map uses OpenStreetMap tiles and displays its required attribution.
+
+## Deploy
+
+Pushes to `main` deploy to [https://jbrixon.github.io/cardinally/](https://jbrixon.github.io/cardinally/) after lint, unit tests, the production build, and Chromium browser tests pass. Pull requests run the checks without deploying.
