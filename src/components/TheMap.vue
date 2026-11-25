@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
+import { searchPhotonPlaces } from '../lib/photon.js'
 import {
   addVisit,
   createTravelBox,
@@ -16,16 +17,24 @@ const baseUrl = import.meta.env.BASE_URL
 const mapElement = ref(null)
 const controlsPanel = ref(null)
 const points = ref([])
-const latitudeInput = ref('')
-const longitudeInput = ref('')
+const placeInput = ref('')
+const suggestions = ref([])
+const activeSuggestionIndex = ref(-1)
+const searchState = ref('idle')
+const searchMessage = ref('')
 const formError = ref('')
 const storageMode = ref('saved')
 const travelBox = computed(() => createTravelBox(points.value))
+const suggestionsOpen = computed(() => searchState.value === 'ready' && suggestions.value.length > 0)
 
 let map = null
 let pointLayer = null
 let boxLayer = null
 let canPersist = true
+let searchDebounce = null
+let searchController = null
+let searchGeneration = 0
+let suggestionsDismissed = false
 
 const formatMetric = (value, digits = 1) =>
   value.toLocaleString(undefined, { maximumFractionDigits: digits })
@@ -74,6 +83,23 @@ function renderPoints() {
   const box = travelBox.value
   if (!box) return
 
+  L.polygon(
+    [
+      [box.south, box.west],
+      [box.south, box.east],
+      [box.north, box.east],
+      [box.north, box.west]
+    ],
+    {
+      color: '#b82019',
+      weight: 2,
+      fillColor: '#bc211b',
+      fillOpacity: 0.07,
+      dashArray: '6 5',
+      interactive: false
+    }
+  ).addTo(boxLayer)
+
   points.value.forEach((point, index) => {
     const [longitude, latitude] = point
     const highlighted = isBoundaryVisit(point, box)
@@ -121,24 +147,9 @@ function renderPoints() {
     })
     marker.on('dblclick', L.DomEvent.stopPropagation)
   })
-
-  const polygon = [
-    [box.south, box.west],
-    [box.south, box.east],
-    [box.north, box.east],
-    [box.north, box.west]
-  ]
-  L.polygon(polygon, {
-    color: '#b82019',
-    weight: 2,
-    fillColor: '#bc211b',
-    fillOpacity: 0.07,
-    dashArray: '6 5',
-    interactive: false
-  }).addTo(boxLayer)
 }
 
-function addCoordinates(latitude, longitude, clearInputs = false) {
+function addCoordinates(latitude, longitude) {
   const result = addVisit(points.value, latitude, longitude)
   if (result.error) {
     formError.value = result.error
@@ -147,16 +158,56 @@ function addCoordinates(latitude, longitude, clearInputs = false) {
 
   points.value = result.points
   formError.value = ''
-  if (clearInputs) {
-    latitudeInput.value = ''
-    longitudeInput.value = ''
-    nextTick(fitBox)
-  }
   return true
 }
 
-function handleFormSubmit() {
-  addCoordinates(latitudeInput.value, longitudeInput.value, true)
+function cancelPlaceSearch() {
+  searchGeneration += 1
+  if (searchDebounce !== null) window.clearTimeout(searchDebounce)
+  searchDebounce = null
+  searchController?.abort()
+  searchController = null
+}
+
+function chooseSuggestion(suggestion) {
+  if (!suggestion) return
+  cancelPlaceSearch()
+  if (!addCoordinates(suggestion.coordinates[1], suggestion.coordinates[0])) return
+  placeInput.value = ''
+  suggestions.value = []
+  activeSuggestionIndex.value = -1
+  searchState.value = 'idle'
+  searchMessage.value = ''
+  nextTick(fitBox)
+}
+
+function handleSearchKeydown(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    suggestionsDismissed = true
+    cancelPlaceSearch()
+    suggestions.value = []
+    activeSuggestionIndex.value = -1
+    searchState.value = 'idle'
+    searchMessage.value = ''
+    return
+  }
+
+  if (!suggestionsOpen.value) return
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    activeSuggestionIndex.value = (activeSuggestionIndex.value + 1) % suggestions.value.length
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    activeSuggestionIndex.value = activeSuggestionIndex.value <= 0
+      ? suggestions.value.length - 1
+      : activeSuggestionIndex.value - 1
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    if (activeSuggestionIndex.value >= 0) {
+      chooseSuggestion(suggestions.value[activeSuggestionIndex.value])
+    }
+  }
 }
 
 function handleDoubleClick(event) {
@@ -221,6 +272,43 @@ function fitBox() {
 }
 
 watch(
+  placeInput,
+  (input) => {
+    cancelPlaceSearch()
+    suggestionsDismissed = false
+    suggestions.value = []
+    activeSuggestionIndex.value = -1
+    formError.value = ''
+    searchState.value = 'idle'
+    searchMessage.value = ''
+    const query = input.trim()
+    if (query.length < 3) return
+
+    const generation = searchGeneration
+    searchDebounce = window.setTimeout(async () => {
+      searchDebounce = null
+      const controller = new AbortController()
+      searchController = controller
+      searchState.value = 'loading'
+      searchMessage.value = 'Searching places…'
+      try {
+        const results = await searchPhotonPlaces(query, controller.signal)
+        if (generation !== searchGeneration) return
+        suggestions.value = results
+        searchState.value = results.length > 0 ? 'ready' : 'empty'
+        searchMessage.value = results.length > 0 ? '' : 'No places found. Try a nearby city or country.'
+      } catch (error) {
+        if (controller.signal.aborted || generation !== searchGeneration) return
+        searchState.value = 'error'
+        searchMessage.value = error.message || 'Could not search places. Please try again.'
+      } finally {
+        if (generation === searchGeneration) searchController = null
+      }
+    }, 500)
+  }
+)
+
+watch(
   points,
   () => {
     renderPoints()
@@ -240,7 +328,7 @@ onMounted(() => {
   L.control.zoom({ position: 'topright' }).addTo(map)
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    attribution: 'Search by <a href="https://photon.komoot.io/">Photon</a> · &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     crossOrigin: true
   }).addTo(map)
   map.attributionControl.setPosition('topright')
@@ -254,6 +342,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelPlaceSearch()
   if (!map) return
   map.off('dblclick', handleDoubleClick)
   map.remove()
@@ -278,42 +367,48 @@ onBeforeUnmount(() => {
       <p>A little further, a little wider. See the world you’ve explored, one place at a time.</p>
     </header>
 
-    <form class="coordinate-form" novalidate @submit.prevent="handleFormSubmit">
-      <h2>Add a place</h2>
-      <p class="section-note">Enter coordinates or double-click the map.</p>
-      <div class="coordinate-fields">
-        <label>
-          Latitude
-          <input
-            v-model="latitudeInput"
-            name="latitude"
-            type="number"
-            min="-90"
-            max="90"
-            step="any"
-            placeholder="e.g. 48.2082"
-            autocomplete="off"
-            required
-          />
-        </label>
-        <label>
-          Longitude
-          <input
-            v-model="longitudeInput"
-            name="longitude"
-            type="number"
-            min="-180"
-            max="180"
-            step="any"
-            placeholder="e.g. 16.3738"
-            autocomplete="off"
-            required
-          />
-        </label>
-      </div>
-      <button class="primary-button" type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.1 7-12a7 7 0 0 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>Add place</button>
+    <section class="place-search" aria-labelledby="add-place-heading">
+      <h2 id="add-place-heading">Add a place</h2>
+      <p class="section-note">Search by name or double-click the map.</p>
+      <label class="place-search-label" for="place-search-input">Place name</label>
+      <input
+        id="place-search-input"
+        v-model="placeInput"
+        class="place-search-input"
+        type="text"
+        placeholder="e.g. Vienna, Austria"
+        autocomplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls="place-search-results"
+        :aria-expanded="suggestionsOpen && !suggestionsDismissed"
+        :aria-activedescendant="activeSuggestionIndex >= 0 ? `place-option-${activeSuggestionIndex}` : undefined"
+        @keydown="handleSearchKeydown"
+      />
+      <ul
+        v-if="suggestionsOpen && !suggestionsDismissed"
+        id="place-search-results"
+        class="place-suggestions"
+        role="listbox"
+        aria-label="Place search results"
+      >
+        <li
+          v-for="(suggestion, index) in suggestions"
+          :id="`place-option-${index}`"
+          :key="`${suggestion.label}-${suggestion.coordinates.join(',')}`"
+          class="place-suggestion"
+          role="option"
+          :aria-selected="activeSuggestionIndex === index"
+          @mouseenter="activeSuggestionIndex = index"
+          @mousedown.prevent
+          @click="chooseSuggestion(suggestion)"
+        >{{ suggestion.label }}</li>
+      </ul>
+      <p v-if="searchMessage" class="search-message" :class="{ 'search-error': searchState === 'error' }" :role="searchState === 'error' ? 'alert' : 'status'">
+        {{ searchMessage }}
+      </p>
       <p v-if="formError" class="error-message" role="alert">{{ formError }}</p>
-    </form>
+    </section>
 
     <section class="metrics-section" aria-labelledby="box-heading">
       <div class="section-heading-row">
@@ -387,17 +482,21 @@ onBeforeUnmount(() => {
 .panel-header h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 28px; font-weight: 400; line-height: 1.22; letter-spacing: -.7px; }
 .panel-header em { color: var(--green); font-weight: 400; }
 .panel-header p { margin-top: 12px; color: var(--muted); font-size: 14px; line-height: 1.65; }
-.coordinate-form, .metrics-section { display: grid; gap: 12px; padding-top: 22px; }
+.place-search, .metrics-section { display: grid; gap: 12px; padding-top: 22px; }
 .metrics-section { margin-top: 24px; border-top: 1px solid var(--line); }
-.coordinate-form h2, .section-heading-row h2 { font-size: 16px; font-weight: 650; }
+.place-search h2, .section-heading-row h2 { font-size: 16px; font-weight: 650; }
 .section-note { color: var(--muted); font-size: 12px; margin-top: -7px; }
-.coordinate-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.coordinate-fields label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 500; }
-.coordinate-fields input {
+.place-search-label { margin-bottom: -7px; color: var(--muted); font-size: 13px; font-weight: 500; }
+.place-search-input {
   width: 100%; min-width: 0; min-height: 44px; padding: 10px;
   border: 1px solid #c9c7b9; border-radius: 5px; background: #fffdf7; color: var(--ink); font: inherit; font-size: 14px;
 }
-.coordinate-fields input::placeholder { color: #77766b; }
+.place-search-input::placeholder { color: #77766b; }
+.place-suggestions { max-height: 190px; overflow-y: auto; padding: 3px; border: 1px solid var(--line); border-radius: 5px; background: #fffdf7; box-shadow: 0 4px 14px rgb(39 43 28 / 10%); list-style: none; }
+.place-suggestion { min-height: 42px; display: flex; align-items: center; padding: 8px 10px; border-radius: 3px; color: var(--ink); font-size: 13px; cursor: pointer; }
+.place-suggestion:hover, .place-suggestion[aria-selected='true'] { background: #eaeadd; color: var(--green); }
+.search-message { color: var(--muted); font-size: 12px; }
+.search-error { color: #a02119; }
 button { min-height: 36px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 5px; background: transparent; color: var(--green); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 150ms ease; }
 button:hover:not(:disabled) { background: #eaeadd; }
 button:disabled { cursor: not-allowed; opacity: .45; }
@@ -445,7 +544,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
   .controls-panel { top: auto; right: 12px; bottom: 12px; left: 12px; width: auto; max-height: 48dvh; padding: 20px; }
   .panel-header { padding-bottom: 18px; } .panel-header h2 { font-size: 25px; }
   .panel-header p { margin-top: 8px; }
-  .coordinate-form, .metrics-section { padding-top: 18px; }
+  .place-search, .metrics-section { padding-top: 18px; }
   .metrics-section { margin-top: 18px; }
   .map-compass { right: 16px; bottom: calc(48dvh + 28px); }
   .map-compass img { width: 40px; height: 40px; }

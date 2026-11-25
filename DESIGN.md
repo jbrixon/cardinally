@@ -1,6 +1,6 @@
 # Cardinally design
 
-Cardinally is a map-first travel atlas. The rebrand follows the supplied compass concept and the tagline “Expand your range.” Keep the map as the main workspace and preserve coordinate entry, visited places, geographic measurements, and browser-local storage.
+Cardinally is a map-first travel atlas. The rebrand follows the supplied compass concept and the tagline “Expand your range.” Keep the map as the main workspace and preserve place-name search, map double-click entry, visited places, geographic measurements, and browser-local storage.
 
 ## Palette
 
