@@ -9,12 +9,11 @@
     "preview": "vite preview",
     "test:unit": "vitest",
     "test:e2e": "playwright test",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --ignore-path .gitignore",
     "format": "prettier --write src/"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
-    "leaflet-image": "^0.4.0",
     "vue": "^3.4.21"
   },
   "devDependencies": {
