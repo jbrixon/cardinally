@@ -5,6 +5,7 @@ import {
   addVisit,
   createTravelBox,
   isBoundaryVisit,
+  normalizeLongitude,
   parseStoredVisits,
   unwrapLongitude
 } from '../lib/travelbox.js'
@@ -159,7 +160,7 @@ function handleFormSubmit() {
 }
 
 function handleDoubleClick(event) {
-  addCoordinates(event.latlng.lat, event.latlng.lng)
+  addCoordinates(event.latlng.lat, normalizeLongitude(event.latlng.lng))
 }
 
 function removeVisit(index) {
@@ -237,9 +238,9 @@ onMounted(() => {
     zoomControl: false
   })
   L.control.zoom({ position: 'topright' }).addTo(map)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     crossOrigin: true
   }).addTo(map)
   map.attributionControl.setPosition('topright')
@@ -353,6 +354,10 @@ onBeforeUnmount(() => {
       <p>Saved visits could not be read. This session will not replace them automatically.</p>
       <button type="button" @click="replaceUnreadableVisits">Replace unreadable saved data</button>
     </div>
+    <p class="source-links">
+      <a href="https://github.com/jbrixon/cardinally">Source code</a>
+      · <a href="https://github.com/jbrixon/cardinally/blob/main/LICENSE">AGPL-3.0</a>
+    </p>
   </aside>
   <div class="map-compass" aria-hidden="true"><span>N</span><img :src="`${baseUrl}cardinally-mark.svg`" alt="" width="56" height="56" /></div>
   <div class="map-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 11 9-6 1-3 6Z"/></svg>Double-click anywhere to mark a place</div>
@@ -424,6 +429,8 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .storage-status { padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); text-align: center; }
 .storage-warning { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--red); border-radius: 5px; background: #fff0e7; color: #80231b; }
 .storage-warning button { justify-self: start; }
+.source-links { margin-top: 8px; color: var(--muted); font-size: 12px; text-align: center; }
+.source-links a { display: inline-block; padding: 6px 2px; color: var(--green); text-underline-offset: 3px; }
 .error-message { color: #a02119; font-size: 13px; }
 .map-compass { position: absolute; z-index: 500; right: 28px; bottom: 55px; display: grid; justify-items: center; gap: 3px; pointer-events: none; }
 .map-compass span { color: var(--green); font-size: 12px; font-weight: 700; }

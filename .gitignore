@@ -31,3 +31,11 @@ coverage
 
 test-results/
 playwright-report/
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key

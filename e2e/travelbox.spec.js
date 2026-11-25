@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
-  await page.route(/https?:\/\/[^/]*\.tile\.openstreetmap\.org\/.*/, (route) => route.abort())
+  await page.route(/https?:\/\/(?:[^/]+\.)?tile\.openstreetmap\.org\/.*/, (route) => route.abort())
 })
 
 test('adds, compares, removes, and restores visited places', async ({ page }) => {
@@ -97,6 +97,20 @@ test('does not overwrite unreadable saved visits without explicit replacement', 
   ])
 })
 
+test('adds a visit after panning into a repeated copy of the world', async ({ page }) => {
+  await page.goto('./')
+  await page.mouse.move(1100, 300)
+  await page.mouse.down()
+  await page.mouse.move(450, 300, { steps: 20 })
+  await page.mouse.up()
+  await page.locator('.leaflet-container').dblclick({ position: { x: 1000, y: 180 } })
+  await expect(page.getByRole('button', { name: /^Place visited at/ })).toHaveCount(1)
+  const [[longitude, latitude]] = await page.evaluate(() => JSON.parse(localStorage.getItem('travelbox.visits.v1')))
+  expect(longitude).toBeGreaterThanOrEqual(-180)
+  expect(longitude).toBeLessThan(180)
+  expect(Number.isFinite(latitude)).toBe(true)
+})
+
 test('remains usable when browser storage is unavailable', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window, 'localStorage', {
@@ -127,6 +141,8 @@ test('keeps the panel, map controls, and attribution usable on a phone viewport'
   await expect(page.getByRole('button', { name: /^Place visited at/ })).toHaveCount(2)
   await expect(page.locator('.leaflet-control-zoom')).toBeVisible()
   await expect(page.locator('.leaflet-control-attribution')).toBeVisible()
+  await expect(page.locator('.leaflet-control-attribution a', { hasText: 'OpenStreetMap' }))
+    .toHaveAttribute('href', 'https://www.openstreetmap.org/copyright')
   const dimensions = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,
     viewportWidth: window.innerWidth,
@@ -146,7 +162,7 @@ test('keeps the panel, map controls, and attribution usable on a phone viewport'
 test('opens a marker card with a touch tap above the phone panel and removes the place', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })
   const page = await context.newPage()
-  await page.route(/https?:\/\/[^/]*\.tile\.openstreetmap\.org\/.*/, (route) => route.abort())
+  await page.route(/https?:\/\/(?:[^/]+\.)?tile\.openstreetmap\.org\/.*/, (route) => route.abort())
   await page.addInitScript(() => {
     localStorage.setItem('travelbox.visits.v1', '[[16.3738,48.2082],[-74.006,40.7128]]')
   })

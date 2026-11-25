@@ -65,7 +65,7 @@ export function parseStoredVisits(rawValue) {
 
   const points = []
   for (const point of storedPoints) {
-    if (!Array.isArray(point) || point.length !== 2) {
+    if (!Array.isArray(point) || point.length !== 2 || point.some((value) => typeof value !== 'number')) {
       return { points: null, error: 'A saved visit does not contain a longitude and latitude.' }
     }
 

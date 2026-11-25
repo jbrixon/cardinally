@@ -135,4 +135,11 @@ describe('coordinate handling', () => {
     expect(parseStoredVisits('[[181,0]]').error).toContain('invalid')
     expect(parseStoredVisits('[[180,0],[-180,0]]').error).toContain('already')
   })
+
+  it('rejects saved values that would otherwise be coerced into coordinates', () => {
+    for (const raw of ['[[null,10]]', '[[true,false]]', '[["16.37",48.2]]', '[[[],10]]']) {
+      expect(parseStoredVisits(raw).points).toBeNull()
+      expect(parseStoredVisits(raw).error).toBeTruthy()
+    }
+  })
 })
