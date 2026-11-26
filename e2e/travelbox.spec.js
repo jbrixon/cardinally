@@ -234,15 +234,14 @@ test('keeps the panel, map controls, and attribution usable on a phone viewport'
   const dimensions = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,
     viewportWidth: window.innerWidth,
-    panelHeight: document.querySelector('.controls-panel').getBoundingClientRect().height,
-    viewportHeight: window.innerHeight,
-    panelTop: document.querySelector('.controls-panel').getBoundingClientRect().top,
+    panelHeight: window.innerHeight - document.querySelector('.controls-panel').getBoundingClientRect().top,
+        panelTop: document.querySelector('.controls-panel').getBoundingClientRect().top,
     boxBottom: [...document.querySelectorAll('.leaflet-overlay-pane path')]
       .at(-1)
       .getBoundingClientRect().bottom
   }))
   expect(dimensions.documentWidth).toBe(dimensions.viewportWidth)
-  expect(dimensions.panelHeight).toBeLessThanOrEqual(dimensions.viewportHeight * 0.48 + 1)
+  expect(dimensions.panelHeight).toBeCloseTo(56, 0)
   expect(dimensions.boxBottom).toBeLessThanOrEqual(dimensions.panelTop)
 })
 
@@ -278,4 +277,51 @@ test('opens a marker card with a touch tap above the phone panel and removes the
     [13.0458, 47.8095]
   ])
   await context.close()
+})
+
+
+test('drags the mobile sheet, snaps it closed, and supports keyboard control', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('./')
+  const panel = page.locator('.controls-panel')
+  const handle = page.getByRole('button', { name: 'Expand menu' })
+  const collapsed = await panel.boundingBox()
+  expect(collapsed.y).toBe(844 - 56)
+  await expect(page.locator('.panel-header')).not.toBeInViewport()
+  await expect(page.getByRole('combobox', { name: 'Place name' })).not.toBeInViewport()
+  const grip = await handle.boundingBox()
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(195, grip.y - 180, { steps: 12 })
+  expect((await panel.boundingBox()).y).toBeLessThan(collapsed.y - 150)
+  await page.mouse.up()
+  const collapse = page.getByRole('button', { name: 'Collapse menu' })
+  await expect(collapse).toHaveAttribute('aria-expanded', 'true')
+  await expect.poll(async () => Math.round((await panel.boundingBox()).y)).toBe(92)
+  await expect(page.getByRole('link', { name: 'Source code' })).toBeInViewport()
+
+  const expandedGrip = await collapse.boundingBox()
+  await page.mouse.move(195, expandedGrip.y + 18)
+  await page.mouse.down()
+  await page.mouse.move(195, expandedGrip.y + 220, { steps: 12 })
+  await page.mouse.up()
+  await expect(handle).toHaveAttribute('aria-expanded', 'false')
+  await expect.poll(async () => Math.round((await panel.boundingBox()).y)).toBe(Math.round(collapsed.y))
+  expect(await page.locator('.panel-content').evaluate((element) => element.scrollTop)).toBe(0)
+
+  await handle.focus()
+  await handle.press('ArrowUp')
+  await expect(collapse).toHaveAttribute('aria-expanded', 'true')
+  await collapse.press('Escape')
+  await expect(handle).toHaveAttribute('aria-expanded', 'false')
+  await handle.click()
+  await expect(collapse).toHaveAttribute('aria-expanded', 'true')
+  await collapse.click()
+  await expect(handle).toHaveAttribute('aria-expanded', 'false')
+
+  await page.getByRole('combobox', { name: 'Place name' }).focus()
+  await expect(collapse).toHaveAttribute('aria-expanded', 'true')
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await expect(page.locator('.sheet-handle')).toBeHidden()
+  await expect(page.getByRole('link', { name: 'Source code' })).toBeVisible()
 })
